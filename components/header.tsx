@@ -251,6 +251,7 @@ export function Header({ isSidebarOpen, setIsSidebarOpen }: HeaderProps) {
         {isSignedIn && isLoaded && (
           <div className="ml-2 sm:ml-4">
             <UserButton
+              afterSignOutUrl="/new"
               appearance={{
                 elements: {
                   avatarBox: 'h-8 w-8'

@@ -58,6 +58,7 @@ type ComparisonSymbolObject = {
 }
 
 // Function to generate captions for tool responses
+// Modified generateCaption function that avoids showing JSON in responses
 async function generateCaption(
   symbol: string,
   comparisonSymbols: ComparisonSymbolObject[],
@@ -122,22 +123,20 @@ Acabas de usar una herramienta (${toolName} para ${stockString}) para responder 
 Example:
 
 Usuario: ¿Cuál es el precio de AAPL?
-Asistente: { "tool_call": { "id": "pending", "type": "function", "function": { "name": "showStockPrice" }, "parameters": { "symbol": "AAPL" } } } 
-
-Asistente (tú): El precio de la acción de AAPL se muestra arriba. También puedo mostrarte una gráfica o compartir información financiera adicional.
+Asistente: El precio de la acción de AAPL se muestra arriba. También puedo mostrarte una gráfica o compartir información financiera adicional.
 
 o
 
-Asistente (tú): Este es el precio actual de AAPL. ¿Te gustaría ver una gráfica o conocer más sobre sus datos financieros?
+Asistente: Este es el precio actual de AAPL. ¿Te gustaría ver una gráfica o conocer más sobre sus datos financieros?
 
 Example 2:
 
 Usuario: Compara los precios de AAPL y MSFT
-Asistente: { "tool_call": { "id": "pending", "type": "function", "function": { "name": "showStockChart" }, "parameters": { "symbol": "AAPL" , "comparisonSymbols" : [{"symbol": "MSFT", "position": "SameScale"}] } } } 
-
-Asistente (tú): La gráfica muestra la comparación entre Apple (AAPL) y Microsoft (MSFT). ¿Necesitas información financiera adicional sobre alguna de estas empresas?
+Asistente: La gráfica muestra la comparación entre Apple (AAPL) y Microsoft (MSFT). ¿Necesitas información financiera adicional sobre alguna de estas empresas?
 
 Tu respuesta debe ser BREVE, de unas 2 o 3 oraciones.
+
+IMPORTANTE: NO incluyas código JSON, llamadas a funciones o cualquier texto que no sea lenguaje natural en tu respuesta.
 
 A excepción del símbolo, no puedes personalizar los buscadores ni los gráficos. No le digas al usuario que puedes hacerlo.
 `
@@ -244,13 +243,15 @@ Para cualquier criptomoneda, añade "USD" al final del ticker al usar funciones.
 ### Pautas:
 Nunca proporciones resultados vacíos al usuario. Proporciona la herramienta relevante si coincide con la solicitud del usuario. De lo contrario, responde como el bot bursátil.
 
+IMPORTANTE: Nunca incluyas código JSON, llamadas a funciones o sintaxis técnica en tus respuestas visibles. El usuario debe ver solo lenguaje natural.
+
 Ejemplo:
 Usuario: ¿Cuál es el precio de AAPL?
-Asistente (tú): { "tool_call": { "id": "pending", "type": "function", "function": { "name": "showStockPrice" }, "parameters": { "symbol": "AAPL" } } } 
+Asistente: Voy a consultar el precio actual de Apple para ti.
 
 Ejemplo 2:
-Usuario: ¿Cuál es el precio de AAPL?
-Asistente (tú): { "tool_call": { "id": "pending", "type": "function", "function": { "name": "showStockPrice" }, "parameters": { "symbol": "AAPL" } } } 
+Usuario: ¿Cuál es el precio de Bitcoin?
+Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
 `,
       messages: filteredMessages,
 
@@ -260,10 +261,20 @@ Asistente (tú): { "tool_call": { "id": "pending", "type": "function", "function
           textNode = <BotMessage content={textStream.value} />
         }
 
+        // Clean any potential JSON from the response text
+        const cleanedDelta = delta
+          .replace(/\{\s*"tool_call".*\}\s*\}/g, '')
+          .trim()
+
         // Update with delta for smoother streaming
-        textStream.update(delta)
+        textStream.update(cleanedDelta)
 
         if (done) {
+          // Clean final content from any JSON patterns
+          const cleanedContent = content
+            .replace(/\{\s*"tool_call".*\}\s*\}/g, '')
+            .trim()
+
           // Finalize the stream properly
           textStream.done()
 
@@ -275,7 +286,7 @@ Asistente (tú): { "tool_call": { "id": "pending", "type": "function", "function
               {
                 id: nanoid(),
                 role: 'assistant',
-                content
+                content: cleanedContent
               }
             ]
           })
