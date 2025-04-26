@@ -44,32 +44,50 @@ export function ChatSidebar({ isOpen, setIsOpen }: ChatSidebarProps) {
   const [chatToDelete, setChatToDelete] = useState<Chat | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const lastFetchRef = useRef<number>(0)
+  const fetchInProgress = useRef<boolean>(false)
   const { user } = useUserStore()
 
-  const isMainRoute = pathname === '/'
-
-  // Fetch chats, with throttling
+  // Fetch chats, with improved error handling and state management
   const fetchChats = useCallback(
     async (force = false) => {
-      if (!user) return
-      const now = Date.now()
-      if (!force && now - lastFetchRef.current < 10000) return // Reduced throttle time to 10s
+      if (!user || fetchInProgress.current) return
 
+      const now = Date.now()
+      if (!force && now - lastFetchRef.current < 10000) return // Throttle to 10s
+
+      fetchInProgress.current = true
       setIsLoading(true)
+
       try {
-        const response = await fetch('/api/chats')
+        const response = await fetch('/api/chats', {
+          // Add cache control headers to prevent caching
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            Pragma: 'no-cache',
+            Expires: '0'
+          }
+        })
+
         if (response.ok) {
           const data = await response.json()
           setChats(data.chats)
           lastFetchRef.current = now
         } else {
-          toast.error('No se pudieron cargar las conversaciones')
+          console.error('Failed to fetch chats:', response.status)
+          if (!force) {
+            // Only show error on automatic fetches
+            toast.error('No se pudieron cargar las conversaciones')
+          }
         }
       } catch (error) {
         console.error('Failed to fetch chats:', error)
-        toast.error('Error al cargar conversaciones')
+        if (!force) {
+          // Only show error on automatic fetches
+          toast.error('Error al cargar conversaciones')
+        }
       } finally {
         setIsLoading(false)
+        fetchInProgress.current = false
       }
     },
     [user]
@@ -108,19 +126,13 @@ export function ChatSidebar({ isOpen, setIsOpen }: ChatSidebarProps) {
     }
   }, [user?.subscriptionStatus, fetchChats])
 
-  // Refetch when navigating to a new chat ID not in list
-  useEffect(() => {
-    const match = pathname.match(/\/chat\/(.+)$/)
-    const currentChatId = match ? match[1] : null
-    if (currentChatId && !chats.some(c => c.id === currentChatId)) {
-      fetchChats(true) // Force fetch if we're on a chat page that's not in our list
-    }
-  }, [pathname, chats, fetchChats])
-
   // Listen for custom refetch event from the Chat component
   useEffect(() => {
     const handleRefetchEvent = () => {
-      fetchChats(true)
+      // Use setTimeout to give the database operation time to complete
+      setTimeout(() => {
+        fetchChats(true)
+      }, 1000)
     }
 
     window.addEventListener('refetch-chats', handleRefetchEvent)
@@ -129,6 +141,17 @@ export function ChatSidebar({ isOpen, setIsOpen }: ChatSidebarProps) {
       window.removeEventListener('refetch-chats', handleRefetchEvent)
     }
   }, [fetchChats])
+
+  // Periodically refresh chats when sidebar is open
+  useEffect(() => {
+    if (isOpen && user?.subscriptionStatus === 'premium') {
+      const interval = setInterval(() => {
+        fetchChats(false)
+      }, 30000) // Refresh every 30 seconds when open
+
+      return () => clearInterval(interval)
+    }
+  }, [isOpen, user?.subscriptionStatus, fetchChats])
 
   // Manual refresh
   const refreshChats = () => fetchChats(true)
@@ -152,8 +175,8 @@ export function ChatSidebar({ isOpen, setIsOpen }: ChatSidebarProps) {
                 size="icon"
                 variant="ghost"
                 onClick={() => {
-                  router.push(isMainRoute ? '/new' : '/')
-                  setIsOpen(false)
+                  // Force go to /new instead of just pushing to avoid state issues
+                  window.location.href = '/new'
                 }}
               >
                 <SquarePen className="h-4 w-4" />
@@ -217,6 +240,16 @@ export function ChatSidebar({ isOpen, setIsOpen }: ChatSidebarProps) {
                       'flex items-center px-2 py-2 rounded-md hover:bg-accent group relative',
                       pathname.includes(chat.id) && 'bg-accent'
                     )}
+                    onClick={e => {
+                      // Use standard navigation for current chat or prevent if delete is in progress
+                      if (pathname.includes(chat.id) || deleteDialogOpen) {
+                        return
+                      }
+
+                      // Use hard navigation for chat switching to avoid state issues
+                      e.preventDefault()
+                      window.location.href = `/chat/${chat.id}`
+                    }}
                   >
                     <IconMessage className="mr-2 h-4 w-4" />
                     <div className="flex-1 truncate">

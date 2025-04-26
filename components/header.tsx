@@ -10,7 +10,6 @@ import { IconGitHub, IconSeparator } from '@/components/ui/icons'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { useUserStore } from '@/lib/store/user-store'
 import { Menu, PanelLeftClose, PanelLeftOpen, SquarePen, X } from 'lucide-react'
-import { usePathname } from 'next/navigation'
 
 interface HeaderProps {
   isSidebarOpen: boolean
@@ -21,9 +20,6 @@ export function Header({ isSidebarOpen, setIsSidebarOpen }: HeaderProps) {
   const { isSignedIn, isLoaded } = useUser()
   const { user: dbUser, fetchUser, fetchSubscription } = useUserStore()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const pathname = usePathname()
-
-  const isMainRoute = pathname === '/'
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
@@ -54,7 +50,7 @@ export function Header({ isSidebarOpen, setIsSidebarOpen }: HeaderProps) {
           </button>
         )}
 
-        <Link href="/" className="flex items-center">
+        <Link href="/new" className="flex items-center">
           <Image
             src="/logo.png"
             alt="Pesito a Pesito Logo"
@@ -73,7 +69,7 @@ export function Header({ isSidebarOpen, setIsSidebarOpen }: HeaderProps) {
           <span className="sm:block md:hidden ml-2">Bot Bursátil</span>
           <IconSeparator className="size-5 md:size-6 text-muted-foreground/50 ml-2 md:ml-4" />
           <Link
-            href={isMainRoute ? '/new' : '/'}
+            href={'/new'}
             className={cn(
               buttonVariants({ variant: 'ghost', size: 'sm' }),
               'ml-1 h-8 px-2 md:px-3'
@@ -172,7 +168,7 @@ export function Header({ isSidebarOpen, setIsSidebarOpen }: HeaderProps) {
             <div>
               <div className="mt-6 flex flex-col gap-4">
                 <Link
-                  href={isMainRoute ? '/new' : '/'}
+                  href={'/new'}
                   className={cn(
                     buttonVariants({ variant: 'outline' }),
                     'w-full justify-start'
@@ -251,7 +247,7 @@ export function Header({ isSidebarOpen, setIsSidebarOpen }: HeaderProps) {
         {isSignedIn && isLoaded && (
           <div className="ml-2 sm:ml-4">
             <UserButton
-              afterSignOutUrl="/new"
+              afterSignOutUrl="/restore"
               appearance={{
                 elements: {
                   avatarBox: 'h-8 w-8'

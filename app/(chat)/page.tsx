@@ -17,3 +17,5 @@ export default async function IndexPage() {
     </AI>
   )
 }
+
+export const dynamic = 'force-dynamic'

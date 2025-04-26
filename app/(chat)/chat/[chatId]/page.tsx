@@ -37,6 +37,9 @@ export default async function ChatPage({ params }: ChatPageParams) {
       redirect('/')
     }
 
+    // Add a small delay to ensure database operations have completed
+    await new Promise(resolve => setTimeout(resolve, 200))
+
     const chat = await prisma.chat.findUnique({
       where: {
         id: chatId,
@@ -46,27 +49,31 @@ export default async function ChatPage({ params }: ChatPageParams) {
 
     // If chat doesn't exist or belongs to another user, redirect to home
     if (!chat) {
+      console.error('Chat not found or access denied:', chatId)
       redirect('/')
     }
 
     initialAIState = (chat.stateData as any) || { chatId, messages: [] }
 
     if (initialAIState.messages) {
+      // Handle message content parsing correctly
       initialAIState.messages = initialAIState.messages.map((msg: any) => {
-        if (
-          typeof msg.content === 'string' &&
-          (msg.content.startsWith('[{') || msg.content.startsWith('{'))
-        ) {
+        if (typeof msg.content === 'string') {
           try {
-            msg.content = JSON.parse(msg.content)
+            // Check if content is stored as JSON string
+            if (msg.content.startsWith('[{') || msg.content.startsWith('{')) {
+              msg.content = JSON.parse(msg.content)
+            }
           } catch (e) {
             console.error('Failed to parse message content:', e)
+            // Keep content as string if parsing fails
           }
         }
         return msg
       })
     }
 
+    // Ensure chatId is correctly set
     initialAIState.chatId = chatId
   } catch (e) {
     console.error('Error loading chat:', e)
@@ -112,4 +119,3 @@ export default async function ChatPage({ params }: ChatPageParams) {
 }
 
 export const dynamic = 'force-dynamic'
-export const revalidate = 0

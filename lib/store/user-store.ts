@@ -19,6 +19,7 @@ type UserState = {
   fetchSubscription: () => Promise<void>
   incrementMessageCount: () => Promise<number>
   resetMessageCount: () => Promise<void>
+  resetStore: () => void
 }
 
 export const useUserStore = create<UserState>()(
@@ -98,6 +99,16 @@ export const useUserStore = create<UserState>()(
           }
         } catch (error) {
           console.error('Error resetting message count:', error)
+        }
+      },
+
+      resetStore: () => {
+        // Reset the store state
+        set({ user: null, subscription: null })
+
+        // Optional: Also clear the persisted storage.
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('user-storage')
         }
       }
     }),

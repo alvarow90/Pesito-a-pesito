@@ -1,10 +1,11 @@
+// components/chat.tsx
 'use client'
 
 import { cn } from '@/lib/utils'
 import { ChatList } from '@/components/chat-list'
 import { ChatPanel } from '@/components/chat-panel'
 import { EmptyScreen } from '@/components/empty-screen'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useUIState, useAIState } from 'ai/rsc'
 import { usePathname, useRouter } from 'next/navigation'
 import { useScrollAnchor } from '@/lib/hooks/use-scroll-anchor'
@@ -39,28 +40,43 @@ export function Chat({ id, className, missingKeys }: ChatProps) {
   const { isSignedIn } = useUser()
   const [showLimitDialog, setShowLimitDialog] = useState(false)
   const [isNewChat, setIsNewChat] = useState(!path?.includes('/chat/'))
+  const redirectInProgress = useRef(false)
+  const redirectTimeout = useRef<NodeJS.Timeout | null | any>(null)
 
   // Handle chat creation and redirect
   useEffect(() => {
-    // Only redirect if it's a new chat with messages and not already on a chat page
     if (
       isNewChat &&
       aiState?.chatId &&
       aiState.messages?.length > 0 &&
-      !path?.includes(aiState.chatId)
+      !path?.includes(aiState.chatId) &&
+      !redirectInProgress.current &&
+      user?.subscriptionStatus === 'premium'
     ) {
+      // Set flag to prevent multiple redirects
+      redirectInProgress.current = true
+
       // Generate event to ensure chat list updates
       window.dispatchEvent(new Event('refetch-chats'))
 
-      // For premium users, redirect to the chat page with a small delay
-      if (user?.subscriptionStatus === 'premium') {
-        // Add a small delay to ensure the chat is registered in the database
-        const redirectTimeout = setTimeout(() => {
-          router.push(`/chat/${aiState.chatId}`)
-          setIsNewChat(false)
-        }, 500) // 500ms delay
+      // Clear any existing timeout
+      if (redirectTimeout.current) {
+        clearTimeout(redirectTimeout.current)
+      }
 
-        return () => clearTimeout(redirectTimeout)
+      // Add a delay to ensure the chat is registered in the database
+      redirectTimeout.current = setTimeout(() => {
+        // Use replace instead of push to avoid back-button issues
+        router.replace(`/chat/${aiState.chatId}`)
+        setIsNewChat(false)
+        redirectInProgress.current = false
+      }, 1500) // Increased delay to allow database operations to complete
+    }
+
+    // Cleanup timeout on component unmount
+    return () => {
+      if (redirectTimeout.current) {
+        clearTimeout(redirectTimeout.current)
       }
     }
   }, [aiState, isNewChat, path, router, user?.subscriptionStatus])

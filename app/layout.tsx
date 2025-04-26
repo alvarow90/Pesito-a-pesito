@@ -1,5 +1,4 @@
 import '@/app/globals.css'
-import { Providers } from '@/components/providers'
 
 import { Toaster } from '@/components/ui/sonner'
 import { ClerkProvider } from '@clerk/nextjs'
@@ -47,18 +46,10 @@ export default function RootLayout({ children }: RootLayoutProps) {
       <html lang="es" suppressHydrationWarning>
         <body className={lato.className}>
           <Toaster position="top-center" />
-          <Providers
-            attribute="class"
-            defaultTheme="light"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <div className="flex flex-col min-h-screen">
-              <main className="flex flex-col flex-1 bg-muted/50">
-                {children}
-              </main>
-            </div>
-          </Providers>
+
+          <div className="flex flex-col min-h-screen">
+            <main className="flex flex-col flex-1 bg-muted/50">{children}</main>
+          </div>
         </body>
       </html>
     </ClerkProvider>

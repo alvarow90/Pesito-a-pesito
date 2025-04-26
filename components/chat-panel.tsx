@@ -81,6 +81,11 @@ export function ChatPanel({
       subheading: 'de algunas divisas',
       message:
         '¿Me puedes dar un resumen de cómo están el dólar, euro y otras monedas hoy?'
+    },
+    {
+      heading: '¿Cuánto cuesta',
+      subheading: 'Bitcoin ahora?',
+      message: '¿Cuál es el precio actual de Bitcoin?'
     }
   ]
 
@@ -148,7 +153,7 @@ export function ChatPanel({
                 key={example.heading}
                 className={`
                     cursor-pointer border bg-white p-4 
-                    hover:bg-zinc-50 dark:bg-zinc-950 dark:hover:bg-zinc-900
+                    hover:bg-zinc-50 transition duration-300 ease-in-out
                     ${index >= 4 ? 'hidden md:block' : ''}
                     ${index >= 2 ? 'hidden 2xl:block' : ''}
                     ${disabled || isLoading ? 'opacity-50 pointer-events-none' : ''}

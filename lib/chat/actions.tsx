@@ -15,7 +15,7 @@ import { auth, currentUser } from '@clerk/nextjs/server'
 import { Message } from '@/lib/types'
 import { z } from 'zod'
 
-// Import all your component messages
+// Import all component messages
 import {
   BotCard,
   BotMessage,
@@ -58,7 +58,6 @@ type ComparisonSymbolObject = {
 }
 
 // Function to generate captions for tool responses
-// Modified generateCaption function that avoids showing JSON in responses
 async function generateCaption(
   symbol: string,
   comparisonSymbols: ComparisonSymbolObject[],
@@ -82,63 +81,28 @@ async function generateCaption(
     })
 
     const captionSystemMessage = `\
-Eres un bot conversacional llamado **Pesito a Pesito**, creado por **Álvaro Zaid Gallardo Hernández**. Estás diseñado para hablar sobre el mercado de valores y, sobre todo, para predecir y brindar información relevante sobre los precios actuales de divisas y sus conversiones.
+Eres un asistente financiero llamado "Pesito a Pesito", creado por Álvaro Zaid Gallardo Hernández. Tu especialidad es proporcionar información sobre el mercado de valores, precios de divisas y realizar análisis financieros.
 
-Trata de no responder a preguntas o prompts no relacionadas con el mercado de valores o cualquier tema relacionado a la economía. Dándole a saber al usuario que está fuera de tus limites. Puedes hacer predicciones de stocks, monedas, etc... con base en 
-el contexto de la conversación
+INSTRUCCIONES IMPORTANTES:
+1. Responde ÚNICAMENTE a consultas relacionadas con finanzas, economía y mercados. Eso incluye cualquier tipo de pregunta (chistes, preguntas generales)
+2. Rechaza amablemente temas no relacionados con finanzas.
+3. Puedes hacer predicciones basadas en los datos mostrados, pero aclara que son opiniones informadas, no certezas.
+4. Sé breve y conciso - respuestas de 2-3 oraciones máximo.
+5. Mantén un tono profesional pero accesible.
 
-Puedes darle al usuario información sobre acciones (como precios y gráficas) dentro de la interfaz. No tienes acceso directo a información externa, así que solo puedes responder utilizando las herramientas disponibles.
+Acabas de usar la herramienta "${toolName}" para mostrar información sobre ${stockString}. Ahora debes proporcionar un breve texto explicativo para acompañar la visualización mostrada.
 
-Estas son las herramientas que puedes usar:
+NO MENCIONES:
+- Que "no tienes acceso a precios reales"
+- Información técnica sobre las herramientas
+- Nunca incluyas código JSON, llamadas a funciones o sintaxis técnica
 
-1. showStockFinancials  
-Muestra los datos financieros de una acción específica.
+EJEMPLOS DE BUENAS RESPUESTAS:
+- "Aquí tienes el gráfico actual de AAPL. ¿Te gustaría ver también sus datos financieros o compararlo con algún competidor?"
+- "El precio de Bitcoin se muestra arriba. ¿Necesitas análisis adicional sobre su comportamiento reciente?"
+- "Esta comparación entre MSFT y AAPL muestra sus tendencias recientes. ¿Quieres explorar algún aspecto específico de estas empresas?"
 
-2. showStockChart  
-Muestra una gráfica de una acción o divisa. También puedes comparar dos o más símbolos.
-
-3. showStockPrice  
-Muestra el precio actual de una acción o divisa.
-
-4. showStockNews  
-Muestra las noticias y eventos más recientes sobre una acción o criptomoneda.
-
-5. showStockScreener  
-Muestra un buscador de acciones para encontrar nuevas basadas en parámetros técnicos o financieros.
-
-6. showMarketOverview  
-Muestra un resumen del desempeño del mercado de acciones, futuros, bonos y divisas de hoy, incluyendo valores de apertura, máximo, mínimo y cierre.
-
-7. showMarketHeatmap  
-Muestra un mapa de calor del rendimiento del mercado accionario por sectores.
-
-8. showTrendingStocks  
-Muestra las acciones más populares del día, incluyendo las que más suben, más bajan y las más activas.
-
-9. showETFHeatmap  
-Muestra un mapa de calor del rendimiento de ETFs por sectores y clases de activos.
-
-Acabas de usar una herramienta (${toolName} para ${stockString}) para responder al usuario. Ahora genera un texto breve que acompañe la respuesta de la herramienta, como una gráfica o historial de precios.
-
-Example:
-
-Usuario: ¿Cuál es el precio de AAPL?
-Asistente: El precio de la acción de AAPL se muestra arriba. También puedo mostrarte una gráfica o compartir información financiera adicional.
-
-o
-
-Asistente: Este es el precio actual de AAPL. ¿Te gustaría ver una gráfica o conocer más sobre sus datos financieros?
-
-Example 2:
-
-Usuario: Compara los precios de AAPL y MSFT
-Asistente: La gráfica muestra la comparación entre Apple (AAPL) y Microsoft (MSFT). ¿Necesitas información financiera adicional sobre alguna de estas empresas?
-
-Tu respuesta debe ser BREVE, de unas 2 o 3 oraciones.
-
-IMPORTANTE: NO incluyas código JSON, llamadas a funciones o cualquier texto que no sea lenguaje natural en tu respuesta.
-
-A excepción del símbolo, no puedes personalizar los buscadores ni los gráficos. No le digas al usuario que puedes hacerlo.
+Tu respuesta debe ser BREVE y enfocada en el valor que ofrece la información mostrada al usuario.
 `
 
     // Filter messages to avoid API errors but still provide context
@@ -156,7 +120,7 @@ A excepción del símbolo, no puedes personalizar los buscadores ni los gráfico
         content:
           typeof message.content === 'string'
             ? message.content
-            : 'Preceding message content'
+            : 'Mensaje anterior con contenido estructurado'
       }))
 
     const response = await generateText({
@@ -169,7 +133,16 @@ A excepción del símbolo, no puedes personalizar los buscadores ni los gráfico
         ...filteredMessages
       ]
     })
-    return response.text || ''
+
+    // Clean any potential JSON from the response
+    const cleanedResponse = response.text
+      ? response.text.replace(/\{\s*"tool_call".*\}\s*\}/g, '').trim()
+      : ''
+
+    return (
+      cleanedResponse ||
+      `Aquí tienes la información de ${symbol}. ¿Necesitas algo más?`
+    )
   } catch (err) {
     console.error('Error generating caption:', err)
     // Return a fallback caption instead of failing
@@ -220,7 +193,7 @@ async function submitUserMessage(content: string) {
         content:
           typeof message.content === 'string'
             ? message.content
-            : 'Previous formatted content'
+            : 'Mensaje anterior con contenido estructurado'
       }))
 
     const result = await streamUI({
@@ -228,10 +201,9 @@ async function submitUserMessage(content: string) {
       initial: <SpinnerMessage />,
       maxRetries: 1,
       system: `\
-Eres un bot conversacional llamado **Pesito a Pesito**, creado por **Álvaro Zaid Gallardo Hernández**. Estás diseñado para hablar sobre el mercado de valores y, sobre todo, para predecir y brindar información relevante sobre los precios actuales de divisas y sus conversiones.
+Eres un bot conversacional llamado "Pesito a Pesito", creado por Álvaro Zaid Gallardo Hernández. Estás diseñado para hablar sobre el mercado de valores y, sobre todo, para predecir y brindar información relevante sobre los precios actuales de divisas y sus conversiones.
 
-Trata de no responder a preguntas o prompts no relacionadas con el mercado de valores o cualquier tema relacionado a la economía. Dándole a saber al usuario que está fuera de tus limites. Puedes hacer predicciones de stocks, monedas, etc... con base en 
-el contexto de la conversación
+Trata de no responder a preguntas o prompts no relacionadas con el mercado de valores o cualquier tema relacionado a la economía. Dándole a saber al usuario que está fuera de tus limites. Puedes hacer predicciones de stocks, monedas, etc... con base en el contexto de la conversación.
 
 Puedes darle al usuario información sobre acciones (como precios y gráficas) dentro de la interfaz. No tienes acceso directo a información externa, así que solo puedes responder utilizando las herramientas disponibles.
 
@@ -261,21 +233,11 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
           textNode = <BotMessage content={textStream.value} />
         }
 
-        // Clean any potential JSON from the response text
-        const cleanedDelta = delta
-          .replace(/\{\s*"tool_call".*\}\s*\}/g, '')
-          .trim()
-
-        // Update with delta for smoother streaming
-        textStream.update(cleanedDelta)
+        // Just update with delta directly - don't modify it
+        textStream.update(delta)
 
         if (done) {
-          // Clean final content from any JSON patterns
-          const cleanedContent = content
-            .replace(/\{\s*"tool_call".*\}\s*\}/g, '')
-            .trim()
-
-          // Finalize the stream properly
+          // Finalize the stream
           textStream.done()
 
           // Add completed message to state
@@ -286,13 +248,20 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
               {
                 id: nanoid(),
                 role: 'assistant',
-                content: cleanedContent
+                content
               }
             ]
           })
 
-          // Save to database after stream completes
-          saveChatToDatabase(aiState.get())
+          // Save to database after stream completes and wait for completion
+          // This is critical - we need to ensure the chat is saved before redirecting
+          try {
+            saveChatToDatabase(aiState.get()).catch(err => {
+              console.error('Error saving chat to database (async):', err)
+            })
+          } catch (err) {
+            console.error('Error in saveChatToDatabase call:', err)
+          }
         }
 
         return textNode
@@ -301,12 +270,12 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
       tools: {
         showStockChart: {
           description:
-            'Show a stock chart of a given stock. Optionally show 2 or more stocks. Use this to show the chart to the user.',
+            'Muestra un gráfico de una acción. Opcionalmente compara con otras acciones.',
           parameters: z.object({
             symbol: z
               .string()
               .describe(
-                'The name or symbol of the stock or currency. e.g. DOGE/AAPL/USD.'
+                'Símbolo de la acción o divisa. Ej: AAPL, MSFT, EURUSD, BTCUSD.'
               ),
             comparisonSymbols: z
               .array(
@@ -317,7 +286,7 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
               )
               .default([])
               .describe(
-                'Optional list of symbols to compare. e.g. ["MSFT", "GOOGL"]'
+                'Lista opcional de símbolos para comparar. Ej: ["MSFT", "GOOGL"]'
               )
           }),
           generate: async function* ({ symbol, comparisonSymbols }) {
@@ -375,8 +344,12 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
                 aiState
               )
 
-              // Save immediately after each tool use
-              await saveChatToDatabase(aiState.get())
+              // Save immediately after each tool use with error handling
+              try {
+                await saveChatToDatabase(aiState.get())
+              } catch (err) {
+                console.error('Error saving chat after tool use:', err)
+              }
 
               return (
                 <BotCard>
@@ -388,7 +361,7 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
                 </BotCard>
               )
             } catch (error) {
-              console.error('Error in tool:', error)
+              console.error('Error in showStockChart tool:', error)
               return (
                 <BotCard>
                   <div className="text-red-600">
@@ -402,13 +375,12 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
         },
 
         showStockPrice: {
-          description:
-            'Show the price of a given stock. Use this to show the price and price history to the user.',
+          description: 'Muestra el precio actual de una acción o divisa.',
           parameters: z.object({
             symbol: z
               .string()
               .describe(
-                'The name or symbol of the stock or currency. e.g. DOGE/AAPL/USD.'
+                'Símbolo de la acción o divisa. Ej: AAPL, MSFT, EURUSD, BTCUSD.'
               )
           }),
           generate: async function* ({ symbol }) {
@@ -466,8 +438,12 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
                 aiState
               )
 
-              // Save immediately after each tool use
-              await saveChatToDatabase(aiState.get())
+              // Save immediately after each tool use with error handling
+              try {
+                await saveChatToDatabase(aiState.get())
+              } catch (err) {
+                console.error('Error saving chat after showStockPrice:', err)
+              }
 
               return (
                 <BotCard>
@@ -476,7 +452,7 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
                 </BotCard>
               )
             } catch (error) {
-              console.error('Error in tool:', error)
+              console.error('Error in showStockPrice tool:', error)
               return (
                 <BotCard>
                   <div className="text-red-600">
@@ -490,14 +466,11 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
         },
 
         showStockFinancials: {
-          description:
-            'Show the financials of a given stock. Use this to show the financials to the user.',
+          description: 'Muestra los datos financieros de una acción.',
           parameters: z.object({
             symbol: z
               .string()
-              .describe(
-                'The name or symbol of the stock or currency. e.g. DOGE/AAPL/USD.'
-              )
+              .describe('Símbolo de la acción. Ej: AAPL, MSFT, GOOGL.')
           }),
           generate: async function* ({ symbol }) {
             try {
@@ -554,8 +527,15 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
                 aiState
               )
 
-              // Save immediately after each tool use
-              await saveChatToDatabase(aiState.get())
+              // Save immediately after each tool use with error handling
+              try {
+                await saveChatToDatabase(aiState.get())
+              } catch (err) {
+                console.error(
+                  'Error saving chat after showStockFinancials:',
+                  err
+                )
+              }
 
               return (
                 <BotCard>
@@ -564,7 +544,7 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
                 </BotCard>
               )
             } catch (error) {
-              console.error('Error in tool:', error)
+              console.error('Error in showStockFinancials tool:', error)
               return (
                 <BotCard>
                   <div className="text-red-600">
@@ -579,12 +559,12 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
 
         showStockNews: {
           description:
-            'This tool shows the latest news and events for a stock or cryptocurrency.',
+            'Muestra las últimas noticias sobre una acción o criptomoneda.',
           parameters: z.object({
             symbol: z
               .string()
               .describe(
-                'The name or symbol of the stock or currency. e.g. DOGE/AAPL/USD.'
+                'Símbolo de la acción o criptomoneda. Ej: AAPL, BTCUSD.'
               )
           }),
           generate: async function* ({ symbol }) {
@@ -642,8 +622,12 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
                 aiState
               )
 
-              // Save immediately after each tool use
-              await saveChatToDatabase(aiState.get())
+              // Save immediately after each tool use with error handling
+              try {
+                await saveChatToDatabase(aiState.get())
+              } catch (err) {
+                console.error('Error saving chat after showStockNews:', err)
+              }
 
               return (
                 <BotCard>
@@ -652,7 +636,7 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
                 </BotCard>
               )
             } catch (error) {
-              console.error('Error in tool:', error)
+              console.error('Error in showStockNews tool:', error)
               return (
                 <BotCard>
                   <div className="text-red-600">
@@ -667,7 +651,7 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
 
         showStockScreener: {
           description:
-            'This tool shows a generic stock screener which can be used to find new stocks based on financial or technical parameters.',
+            'Muestra un buscador de acciones según parámetros financieros o técnicos.',
           parameters: z.object({}),
           generate: async function* ({}) {
             try {
@@ -724,8 +708,12 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
                 aiState
               )
 
-              // Save immediately after each tool use
-              await saveChatToDatabase(aiState.get())
+              // Save immediately after each tool use with error handling
+              try {
+                await saveChatToDatabase(aiState.get())
+              } catch (err) {
+                console.error('Error saving chat after showStockScreener:', err)
+              }
 
               return (
                 <BotCard>
@@ -734,7 +722,7 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
                 </BotCard>
               )
             } catch (error) {
-              console.error('Error in tool:', error)
+              console.error('Error in showStockScreener tool:', error)
               return (
                 <BotCard>
                   <div className="text-red-600">
@@ -748,7 +736,8 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
         },
 
         showMarketOverview: {
-          description: `This tool shows an overview of today's stock, futures, bond, and forex market performance including change values, Open, High, Low, and Close values.`,
+          description:
+            'Muestra un resumen del rendimiento del mercado de acciones, futuros, bonos y divisas.',
           parameters: z.object({}),
           generate: async function* ({}) {
             try {
@@ -805,8 +794,15 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
                 aiState
               )
 
-              // Save immediately after each tool use
-              await saveChatToDatabase(aiState.get())
+              // Save immediately after each tool use with error handling
+              try {
+                await saveChatToDatabase(aiState.get())
+              } catch (err) {
+                console.error(
+                  'Error saving chat after showMarketOverview:',
+                  err
+                )
+              }
 
               return (
                 <BotCard>
@@ -815,7 +811,7 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
                 </BotCard>
               )
             } catch (error) {
-              console.error('Error in tool:', error)
+              console.error('Error in showMarketOverview tool:', error)
               return (
                 <BotCard>
                   <div className="text-red-600">
@@ -829,7 +825,8 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
         },
 
         showMarketHeatmap: {
-          description: `This tool shows a heatmap of today's stock market performance across sectors. It is preferred over showMarketOverview if asked specifically about the stock market.`,
+          description:
+            'Muestra un mapa de calor del rendimiento del mercado de acciones por sectores.',
           parameters: z.object({}),
           generate: async function* ({}) {
             try {
@@ -886,8 +883,12 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
                 aiState
               )
 
-              // Save immediately after each tool use
-              await saveChatToDatabase(aiState.get())
+              // Save immediately after each tool use with error handling
+              try {
+                await saveChatToDatabase(aiState.get())
+              } catch (err) {
+                console.error('Error saving chat after showMarketHeatmap:', err)
+              }
 
               return (
                 <BotCard>
@@ -896,7 +897,7 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
                 </BotCard>
               )
             } catch (error) {
-              console.error('Error in tool:', error)
+              console.error('Error in showMarketHeatmap tool:', error)
               return (
                 <BotCard>
                   <div className="text-red-600">
@@ -910,7 +911,8 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
         },
 
         showETFHeatmap: {
-          description: `This tool shows a heatmap of today's ETF performance across sectors and asset classes. It is preferred over showMarketOverview if asked specifically about the ETF market.`,
+          description:
+            'Muestra un mapa de calor del rendimiento de ETFs por sectores y clases de activos.',
           parameters: z.object({}),
           generate: async function* ({}) {
             try {
@@ -967,8 +969,12 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
                 aiState
               )
 
-              // Save immediately after each tool use
-              await saveChatToDatabase(aiState.get())
+              // Save immediately after each tool use with error handling
+              try {
+                await saveChatToDatabase(aiState.get())
+              } catch (err) {
+                console.error('Error saving chat after showETFHeatmap:', err)
+              }
 
               return (
                 <BotCard>
@@ -977,7 +983,7 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
                 </BotCard>
               )
             } catch (error) {
-              console.error('Error in tool:', error)
+              console.error('Error in showETFHeatmap tool:', error)
               return (
                 <BotCard>
                   <div className="text-red-600">
@@ -991,7 +997,8 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
         },
 
         showTrendingStocks: {
-          description: `This tool shows the daily top trending stocks including the top five gaining, losing, and most active stocks based on today's performance`,
+          description:
+            'Muestra las acciones más populares del día, incluyendo las que más suben, bajan y las más activas.',
           parameters: z.object({}),
           generate: async function* ({}) {
             try {
@@ -1048,8 +1055,15 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
                 aiState
               )
 
-              // Save immediately after each tool use
-              await saveChatToDatabase(aiState.get())
+              // Save immediately after each tool use with error handling
+              try {
+                await saveChatToDatabase(aiState.get())
+              } catch (err) {
+                console.error(
+                  'Error saving chat after showTrendingStocks:',
+                  err
+                )
+              }
 
               return (
                 <BotCard>
@@ -1058,7 +1072,7 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
                 </BotCard>
               )
             } catch (error) {
-              console.error('Error in tool:', error)
+              console.error('Error in showTrendingStocks tool:', error)
               return (
                 <BotCard>
                   <div className="text-red-600">
@@ -1073,8 +1087,12 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
       }
     })
 
-    // Save state after successful streaming
-    await saveChatToDatabase(aiState.get())
+    // Save state after successful streaming - with error handling
+    try {
+      await saveChatToDatabase(aiState.get())
+    } catch (err) {
+      console.error('Error saving chat after successful streaming:', err)
+    }
 
     return {
       id: nanoid(),
@@ -1108,12 +1126,14 @@ Asistente: Déjame mostrarte el precio actual de Bitcoin en USD.
   }
 }
 
-// In the saveChatToDatabase function
+// In the saveChatToDatabase function - keeping the original implementation
+// Improved saveChatToDatabase function
 async function saveChatToDatabase(state: AIState) {
   'use server'
 
   try {
     const { userId } = await auth()
+    if (!userId) return false
 
     const user = await prisma.user.findUnique({
       where: {
@@ -1121,7 +1141,7 @@ async function saveChatToDatabase(state: AIState) {
       }
     })
 
-    if (user?.subscriptionStatus === 'free') return
+    if (user?.subscriptionStatus === 'free') return false
 
     // Generate a title from the first user message if available
     let title = 'Nueva conversación'
@@ -1156,120 +1176,153 @@ async function saveChatToDatabase(state: AIState) {
       })
     }
 
-    // Save to database
-    await prisma.chat.upsert({
-      where: { id: state.chatId },
-      update: {
-        title,
-        stateData: serializedState as any,
-        updatedAt: new Date()
-      },
-      create: {
-        id: state.chatId,
-        title,
-        userId: userId as string,
-        stateData: serializedState as any
-      }
-    })
+    // Use a more reliable upsert pattern with retry logic
+    let retries = 0
+    const maxRetries = 3
+    let success = false
 
-    return true
+    while (!success && retries < maxRetries) {
+      try {
+        // Save to database with explicit transaction
+        await prisma.$transaction(
+          async tx => {
+            await tx.chat.upsert({
+              where: { id: state.chatId },
+              update: {
+                title,
+                stateData: serializedState as any,
+                updatedAt: new Date()
+              },
+              create: {
+                id: state.chatId,
+                title,
+                userId: userId as string,
+                stateData: serializedState as any
+              }
+            })
+          },
+          {
+            // Short timeout since we're retrying
+            timeout: 5000
+          }
+        )
+        success = true
+      } catch (error) {
+        retries++
+        console.error(
+          `Error saving chat to database (attempt ${retries}):`,
+          error
+        )
+        // Small delay before retry
+        if (retries < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+      }
+    }
+
+    return success
   } catch (error) {
-    console.error('Error saving chat to database:', error)
+    console.error('Error in saveChatToDatabase:', error)
     return false
   }
 }
 
 // Create a message display for UI based on message type
 function createMessageDisplay(message: Message): React.ReactNode {
-  // Handle user messages
-  if (message.role === 'user') {
-    return <UserMessage>{message.content as any}</UserMessage>
-  }
+  try {
+    // Handle user messages
+    if (message.role === 'user') {
+      return <UserMessage>{message.content as string}</UserMessage>
+    }
 
-  // Handle assistant messages with tool calls
-  if (message.role === 'assistant' && typeof message.content === 'object') {
-    if (
-      Array.isArray(message.content) &&
-      message.content[0]?.type === 'tool-call'
-    ) {
-      const toolCall = message.content[0] as any
+    // Handle assistant messages with tool calls
+    if (message.role === 'assistant' && typeof message.content === 'object') {
+      if (
+        Array.isArray(message.content) &&
+        message.content[0]?.type === 'tool-call'
+      ) {
+        const toolCall = message.content[0] as any
 
-      // Each tool gets a specific component
-      switch (toolCall.toolName) {
-        case 'showStockChart':
-          return (
-            <BotCard>
-              <StockChart
-                symbol={toolCall.args.symbol}
-                comparisonSymbols={toolCall.args.comparisonSymbols || []}
-              />
-            </BotCard>
-          )
-        case 'showStockPrice':
-          return (
-            <BotCard>
-              <StockPrice props={toolCall.args.symbol} />
-            </BotCard>
-          )
-        case 'showStockFinancials':
-          return (
-            <BotCard>
-              <StockFinancials props={toolCall.args.symbol} />
-            </BotCard>
-          )
-        case 'showStockNews':
-          return (
-            <BotCard>
-              <StockNews props={toolCall.args.symbol} />
-            </BotCard>
-          )
-        case 'showStockScreener':
-          return (
-            <BotCard>
-              <StockScreener />
-            </BotCard>
-          )
-        case 'showMarketOverview':
-          return (
-            <BotCard>
-              <MarketOverview />
-            </BotCard>
-          )
-        case 'showMarketHeatmap':
-          return (
-            <BotCard>
-              <MarketHeatmap />
-            </BotCard>
-          )
-        case 'showTrendingStocks':
-          return (
-            <BotCard>
-              <MarketTrending />
-            </BotCard>
-          )
-        case 'showETFHeatmap':
-          return (
-            <BotCard>
-              <ETFHeatmap />
-            </BotCard>
-          )
-        default:
-          return <SpinnerMessage />
+        // Each tool gets a specific component
+        switch (toolCall.toolName) {
+          case 'showStockChart':
+            return (
+              <BotCard>
+                <StockChart
+                  symbol={toolCall.args.symbol}
+                  comparisonSymbols={toolCall.args.comparisonSymbols || []}
+                />
+              </BotCard>
+            )
+          case 'showStockPrice':
+            return (
+              <BotCard>
+                <StockPrice props={toolCall.args.symbol} />
+              </BotCard>
+            )
+          case 'showStockFinancials':
+            return (
+              <BotCard>
+                <StockFinancials props={toolCall.args.symbol} />
+              </BotCard>
+            )
+          case 'showStockNews':
+            return (
+              <BotCard>
+                <StockNews props={toolCall.args.symbol} />
+              </BotCard>
+            )
+          case 'showStockScreener':
+            return (
+              <BotCard>
+                <StockScreener />
+              </BotCard>
+            )
+          case 'showMarketOverview':
+            return (
+              <BotCard>
+                <MarketOverview />
+              </BotCard>
+            )
+          case 'showMarketHeatmap':
+            return (
+              <BotCard>
+                <MarketHeatmap />
+              </BotCard>
+            )
+          case 'showTrendingStocks':
+            return (
+              <BotCard>
+                <MarketTrending />
+              </BotCard>
+            )
+          case 'showETFHeatmap':
+            return (
+              <BotCard>
+                <ETFHeatmap />
+              </BotCard>
+            )
+          default:
+            return <SpinnerMessage />
+        }
       }
     }
-  }
 
-  // Handle assistant text messages
-  if (message.role === 'assistant') {
-    const content =
-      typeof message.content === 'string'
-        ? message.content
-        : JSON.stringify(message.content)
-    return <BotMessage content={content} />
-  }
+    // Handle assistant text messages
+    if (message.role === 'assistant') {
+      const content =
+        typeof message.content === 'string'
+          ? message.content
+          : JSON.stringify(message.content)
+      return <BotMessage content={content} />
+    }
 
-  // Tool messages are not displayed directly
-  return null
+    // Tool messages are not displayed directly
+    return null
+  } catch (error) {
+    console.error('Error in createMessageDisplay:', error)
+    return <BotMessage content="Error al mostrar este mensaje" />
+  }
 }
 
 // The AI component setup
