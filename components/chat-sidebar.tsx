@@ -46,6 +46,8 @@ export function ChatSidebar({ isOpen, setIsOpen }: ChatSidebarProps) {
   const lastFetchRef = useRef<number>(0)
   const { user } = useUserStore()
 
+  const isMainRoute = pathname === '/'
+
   // Fetch chats, with throttling
   const fetchChats = useCallback(
     async (force = false) => {
@@ -150,7 +152,7 @@ export function ChatSidebar({ isOpen, setIsOpen }: ChatSidebarProps) {
                 size="icon"
                 variant="ghost"
                 onClick={() => {
-                  router.push('/new')
+                  router.push(isMainRoute ? '/new' : '/')
                   setIsOpen(false)
                 }}
               >

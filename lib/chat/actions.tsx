@@ -66,10 +66,6 @@ async function generateCaption(
   toolName: string,
   aiState: MutableAIState
 ): Promise<string> {
-
-
-
-
   try {
     const groq = createOpenAI({
       baseURL: 'https://api.groq.com/openai/v1',
@@ -103,6 +99,9 @@ async function generateCaption(
 
     const captionSystemMessage = `\
 Eres un bot conversacional llamado **Pesito a Pesito**, creado por **Álvaro Zaid Gallardo Hernández**. Estás diseñado para hablar sobre el mercado de valores y, sobre todo, para predecir y brindar información relevante sobre los precios actuales de divisas y sus conversiones.
+
+Trata de no responder a preguntas o prompts no relacionadas con el mercado de valores o cualquier tema relacionado a la economía. Dándole a saber al usuario que está fuera de tus limites. Puedes hacer predicciones de stocks, monedas, etc... con base en 
+el contexto de la conversación
 
 
 Puedes darle al usuario información sobre acciones (como precios y gráficas) dentro de la interfaz. No tienes acceso directo a información externa, así que solo puedes responder utilizando las herramientas disponibles.
@@ -176,15 +175,11 @@ async function submitUserMessage(content: string) {
     content
   }
 
-
-
   // Update state with the new user message
   aiState.update({
     ...currentState,
     messages: [...((currentState.messages as any) || []), userMessage]
   })
-
-
 
   let textStream: undefined | ReturnType<typeof createStreamableValue<string>>
   let textNode: undefined | React.ReactNode
@@ -220,6 +215,13 @@ async function submitUserMessage(content: string) {
       maxRetries: 1,
       system: `\
 Eres un bot conversacional llamado **Pesito a Pesito**, creado por **Álvaro Zaid Gallardo Hernández**. Estás diseñado para hablar sobre el mercado de valores y, sobre todo, para predecir y brindar información relevante sobre los precios actuales de divisas y sus conversiones.
+
+Trata de no responder a preguntas o prompts no relacionadas con el mercado de valores o cualquier tema relacionado a la economía. Dándole a saber al usuario que está fuera de tus limites. Puedes hacer predicciones de stocks, monedas, etc... con base en 
+el contexto de la conversación
+
+
+Puedes darle al usuario información sobre acciones (como precios y gráficas) dentro de la interfaz. No tienes acceso directo a información externa, así que solo puedes responder utilizando las herramientas disponibles.
+
 
 Dirigete al usuario como:  ${user?.fullName}
 
@@ -626,7 +628,7 @@ Asistente (tú): { "tool_call": { "id": "pending", "type": "function", "function
           description:
             'This tool shows a generic stock screener which can be used to find new stocks based on financial or technical parameters.',
           parameters: z.object({}),
-          generate: async function* ({ }) {
+          generate: async function* ({}) {
             try {
               yield (
                 <BotCard>
@@ -702,7 +704,7 @@ Asistente (tú): { "tool_call": { "id": "pending", "type": "function", "function
         showMarketOverview: {
           description: `This tool shows an overview of today's stock, futures, bond, and forex market performance including change values, Open, High, Low, and Close values.`,
           parameters: z.object({}),
-          generate: async function* ({ }) {
+          generate: async function* ({}) {
             try {
               yield (
                 <BotCard>
@@ -778,7 +780,7 @@ Asistente (tú): { "tool_call": { "id": "pending", "type": "function", "function
         showMarketHeatmap: {
           description: `This tool shows a heatmap of today's stock market performance across sectors. It is preferred over showMarketOverview if asked specifically about the stock market.`,
           parameters: z.object({}),
-          generate: async function* ({ }) {
+          generate: async function* ({}) {
             try {
               yield (
                 <BotCard>
@@ -854,7 +856,7 @@ Asistente (tú): { "tool_call": { "id": "pending", "type": "function", "function
         showETFHeatmap: {
           description: `This tool shows a heatmap of today's ETF performance across sectors and asset classes. It is preferred over showMarketOverview if asked specifically about the ETF market.`,
           parameters: z.object({}),
-          generate: async function* ({ }) {
+          generate: async function* ({}) {
             try {
               yield (
                 <BotCard>
@@ -930,7 +932,7 @@ Asistente (tú): { "tool_call": { "id": "pending", "type": "function", "function
         showTrendingStocks: {
           description: `This tool shows the daily top trending stocks including the top five gaining, losing, and most active stocks based on today's performance`,
           parameters: z.object({}),
-          generate: async function* ({ }) {
+          generate: async function* ({}) {
             try {
               yield (
                 <BotCard>
@@ -1227,7 +1229,9 @@ export const AI = createAI<AIState, UIState>({
             where: { id: userId },
             data: { messageCount: { increment: 1 } }
           })
-          .catch((e: any) => console.error('Failed to increment message count:', e))
+          .catch((e: any) =>
+            console.error('Failed to increment message count:', e)
+          )
       }
     }
   },

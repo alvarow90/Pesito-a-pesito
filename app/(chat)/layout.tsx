@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { Header } from '@/components/header'
 import { ChatSidebar } from '@/components/chat-sidebar'
-import { usePathname } from 'next/navigation'
+
 import { useUser } from '@clerk/nextjs'
 
 interface MainLayoutProps {
@@ -12,16 +12,14 @@ interface MainLayoutProps {
 
 export default function MainLayout({ children }: MainLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const pathname = usePathname()
   const { isSignedIn } = useUser()
-  const isInChatPage = pathname?.includes('/chat/')
 
   // Close sidebar on route changes on mobile
   useEffect(() => {
     if (window.innerWidth < 768) {
       setIsSidebarOpen(false)
     }
-  }, [pathname])
+  }, [])
 
   // Handle window resize for responsive design
   useEffect(() => {

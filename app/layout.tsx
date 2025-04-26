@@ -14,7 +14,7 @@ const lato = Lato({
 
 export const metadata: Metadata = {
   metadataBase: process.env.VERCEL_URL
-    ? new URL("https://pesito-a-pesito.vercel.app/")
+    ? new URL('https://pesito-a-pesito.vercel.app/')
     : undefined,
   title: {
     default: 'Pesito a Pesito',
@@ -26,10 +26,10 @@ export const metadata: Metadata = {
     icon: '/favicon.ico'
   },
   openGraph: {
-    images: ["https://pesito-a-pesito.vercel.app/og.png"],
+    images: ['https://pesito-a-pesito.vercel.app/og.png'],
     siteName: 'Pesito a Pesito',
-    url: "https://pesito-a-pesito.vercel.app", 
-    title: "Pesito a Pesito"
+    url: 'https://pesito-a-pesito.vercel.app',
+    title: 'Pesito a Pesito'
   }
 }
 

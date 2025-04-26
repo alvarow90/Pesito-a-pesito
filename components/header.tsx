@@ -10,6 +10,7 @@ import { IconGitHub, IconSeparator } from '@/components/ui/icons'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { useUserStore } from '@/lib/store/user-store'
 import { Menu, PanelLeftClose, PanelLeftOpen, SquarePen, X } from 'lucide-react'
+import { usePathname } from 'next/navigation'
 
 interface HeaderProps {
   isSidebarOpen: boolean
@@ -20,6 +21,9 @@ export function Header({ isSidebarOpen, setIsSidebarOpen }: HeaderProps) {
   const { isSignedIn, isLoaded } = useUser()
   const { user: dbUser, fetchUser, fetchSubscription } = useUserStore()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const pathname = usePathname()
+
+  const isMainRoute = pathname === '/'
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
@@ -69,7 +73,7 @@ export function Header({ isSidebarOpen, setIsSidebarOpen }: HeaderProps) {
           <span className="sm:block md:hidden ml-2">Bot Bursátil</span>
           <IconSeparator className="size-5 md:size-6 text-muted-foreground/50 ml-2 md:ml-4" />
           <Link
-            href="/new"
+            href={isMainRoute ? '/new' : '/'}
             className={cn(
               buttonVariants({ variant: 'ghost', size: 'sm' }),
               'ml-1 h-8 px-2 md:px-3'
@@ -161,13 +165,14 @@ export function Header({ isSidebarOpen, setIsSidebarOpen }: HeaderProps) {
             </button>
           </SheetTrigger>
 
-          <SheetContent side="right" className="w-[250px] sm:w-[300px] p-6 flex flex-col justify-between">
+          <SheetContent
+            side="right"
+            className="w-[250px] sm:w-[300px] p-6 flex flex-col justify-between"
+          >
             <div>
-              
-
               <div className="mt-6 flex flex-col gap-4">
                 <Link
-                  href="/new"
+                  href={isMainRoute ? '/new' : '/'}
                   className={cn(
                     buttonVariants({ variant: 'outline' }),
                     'w-full justify-start'

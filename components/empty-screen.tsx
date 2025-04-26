@@ -32,7 +32,7 @@ export function EmptyScreen() {
       <div className="flex flex-col gap-2 p-8">
         <h1 className="text-xl font-semibold tracking-tighter text-center">
           <Typewriter
-            onInit={(typewriter) => {
+            onInit={typewriter => {
               typewriter
                 .typeString(greeting)
                 .callFunction(() => {
@@ -43,7 +43,7 @@ export function EmptyScreen() {
             }}
             options={{
               delay: 40,
-              loop: false,
+              loop: false
             }}
           />
         </h1>

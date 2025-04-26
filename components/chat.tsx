@@ -100,10 +100,7 @@ export function Chat({ id, className, missingKeys }: ChatProps) {
       )}
 
       <div
-        className={cn(
-          messages.length ? 'pb-[300px] pt-4 md:pt-6' : 'pb-[300px] pt-4',
-          className
-        )}
+        className={cn(messages.length ? 'pb-40 ' : 'pb-40 ', className)}
         ref={messagesRef}
       >
         {messages.length ? <ChatList messages={messages} /> : <EmptyScreen />}
