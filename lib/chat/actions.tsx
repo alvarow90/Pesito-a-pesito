@@ -50,9 +50,7 @@ interface MutableAIState {
   get: () => AIState
 }
 
-const MODEL = 'llama3-70b-8192'
-const TOOL_MODEL = 'llama3-70b-8192'
-const GROQ_API_KEY_ENV = process.env.GROQ_API_KEY
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY
 
 type ComparisonSymbolObject = {
   symbol: string
@@ -67,9 +65,8 @@ async function generateCaption(
   aiState: MutableAIState
 ): Promise<string> {
   try {
-    const groq = createOpenAI({
-      baseURL: 'https://api.groq.com/openai/v1',
-      apiKey: GROQ_API_KEY_ENV
+    const openAi = createOpenAI({
+      apiKey: OPENAI_API_KEY
     })
 
     const stockString =
@@ -77,32 +74,17 @@ async function generateCaption(
         ? symbol
         : [symbol, ...comparisonSymbols.map(obj => obj.symbol)].join(', ')
 
-    // CRITICAL FIX: Filter out messages that would cause API errors
-    // Only include user and assistant text messages
-    const filteredMessages = aiState
-      .get()
-      .messages.filter(message => {
-        // Only include messages with simple string content or user messages
-        return (
-          message.role === 'user' ||
-          (message.role === 'assistant' && typeof message.content === 'string')
-        )
-      })
-      .slice(-5) // Only use the last 5 messages to avoid context size issues
-      .map(message => ({
-        role: message.role as 'user' | 'assistant' | 'system',
-        content:
-          typeof message.content === 'string'
-            ? message.content
-            : 'Preceding message content'
-      }))
+    // Update state to ensure the most recent messages are used
+    aiState.update({
+      ...aiState.get(),
+      messages: [...aiState.get().messages]
+    })
 
     const captionSystemMessage = `\
 Eres un bot conversacional llamado **Pesito a Pesito**, creado por **Álvaro Zaid Gallardo Hernández**. Estás diseñado para hablar sobre el mercado de valores y, sobre todo, para predecir y brindar información relevante sobre los precios actuales de divisas y sus conversiones.
 
 Trata de no responder a preguntas o prompts no relacionadas con el mercado de valores o cualquier tema relacionado a la economía. Dándole a saber al usuario que está fuera de tus limites. Puedes hacer predicciones de stocks, monedas, etc... con base en 
 el contexto de la conversación
-
 
 Puedes darle al usuario información sobre acciones (como precios y gráficas) dentro de la interfaz. No tienes acceso directo a información externa, así que solo puedes responder utilizando las herramientas disponibles.
 
@@ -137,13 +119,49 @@ Muestra un mapa de calor del rendimiento de ETFs por sectores y clases de activo
 
 Acabas de usar una herramienta (${toolName} para ${stockString}) para responder al usuario. Ahora genera un texto breve que acompañe la respuesta de la herramienta, como una gráfica o historial de precios.
 
-Tu respuesta debe ser breve, de unas 2 o 3 oraciones.
+Example:
+
+Usuario: ¿Cuál es el precio de AAPL?
+Asistente: { "tool_call": { "id": "pending", "type": "function", "function": { "name": "showStockPrice" }, "parameters": { "symbol": "AAPL" } } } 
+
+Asistente (tú): El precio de la acción de AAPL se muestra arriba. También puedo mostrarte una gráfica o compartir información financiera adicional.
+
+o
+
+Asistente (tú): Este es el precio actual de AAPL. ¿Te gustaría ver una gráfica o conocer más sobre sus datos financieros?
+
+Example 2:
+
+Usuario: Compara los precios de AAPL y MSFT
+Asistente: { "tool_call": { "id": "pending", "type": "function", "function": { "name": "showStockChart" }, "parameters": { "symbol": "AAPL" , "comparisonSymbols" : [{"symbol": "MSFT", "position": "SameScale"}] } } } 
+
+Asistente (tú): La gráfica muestra la comparación entre Apple (AAPL) y Microsoft (MSFT). ¿Necesitas información financiera adicional sobre alguna de estas empresas?
+
+Tu respuesta debe ser BREVE, de unas 2 o 3 oraciones.
 
 A excepción del símbolo, no puedes personalizar los buscadores ni los gráficos. No le digas al usuario que puedes hacerlo.
 `
 
+    // Filter messages to avoid API errors but still provide context
+    const filteredMessages = aiState
+      .get()
+      .messages.filter(message => {
+        return (
+          message.role === 'user' ||
+          (message.role === 'assistant' && typeof message.content === 'string')
+        )
+      })
+      .slice(-5) // Only use the last 5 messages to avoid context size issues
+      .map(message => ({
+        role: message.role as 'user' | 'assistant' | 'system',
+        content:
+          typeof message.content === 'string'
+            ? message.content
+            : 'Preceding message content'
+      }))
+
     const response = await generateText({
-      model: groq(MODEL),
+      model: openAi('gpt-4o'),
       messages: [
         {
           role: 'system',
@@ -185,17 +203,14 @@ async function submitUserMessage(content: string) {
   let textNode: undefined | React.ReactNode
 
   try {
-    const groq = createOpenAI({
-      baseURL: 'https://api.groq.com/openai/v1',
-      apiKey: GROQ_API_KEY_ENV
+    const openAi = createOpenAI({
+      apiKey: OPENAI_API_KEY
     })
 
-    // CRITICAL FIX: Filter out complex message formats before sending to API
-    // Only send simple user and text-based assistant messages to avoid API errors
+    // Filter messages for API call to avoid errors
     const filteredMessages = aiState
       .get()
       .messages.filter(message => {
-        // Only include text-based messages for API call
         return (
           message.role === 'user' ||
           (message.role === 'assistant' && typeof message.content === 'string')
@@ -210,7 +225,7 @@ async function submitUserMessage(content: string) {
       }))
 
     const result = await streamUI({
-      model: groq(TOOL_MODEL),
+      model: openAi('gpt-4o'),
       initial: <SpinnerMessage />,
       maxRetries: 1,
       system: `\
@@ -219,12 +234,9 @@ Eres un bot conversacional llamado **Pesito a Pesito**, creado por **Álvaro Zai
 Trata de no responder a preguntas o prompts no relacionadas con el mercado de valores o cualquier tema relacionado a la economía. Dándole a saber al usuario que está fuera de tus limites. Puedes hacer predicciones de stocks, monedas, etc... con base en 
 el contexto de la conversación
 
-
 Puedes darle al usuario información sobre acciones (como precios y gráficas) dentro de la interfaz. No tienes acceso directo a información externa, así que solo puedes responder utilizando las herramientas disponibles.
 
-
-Dirigete al usuario como:  ${user?.fullName}
-
+${user?.fullName ? `Dirigete al usuario como: ${user.fullName}` : ''}
 
 ### Tickers de Criptomonedas
 Para cualquier criptomoneda, añade "USD" al final del ticker al usar funciones. Por ejemplo, "DOGE" debe ser "DOGEUSD".
@@ -240,7 +252,6 @@ Ejemplo 2:
 Usuario: ¿Cuál es el precio de AAPL?
 Asistente (tú): { "tool_call": { "id": "pending", "type": "function", "function": { "name": "showStockPrice" }, "parameters": { "symbol": "AAPL" } } } 
 `,
-      // CRITICAL: Use filtered messages to avoid API errors
       messages: filteredMessages,
 
       text: ({ content, done, delta }) => {
@@ -345,9 +356,13 @@ Asistente (tú): { "tool_call": { "id": "pending", "type": "function", "function
                 ]
               } as any)
 
-              // SIMPLIFIED CAPTION APPROACH: Just use a fixed caption
-              // to avoid API errors entirely
-              const caption = `Aquí tienes la gráfica de ${symbol}. ¿Necesitas alguna otra información?`
+              // Generate caption using the proper function
+              const caption = await generateCaption(
+                symbol,
+                comparisonSymbols,
+                'showStockChart',
+                aiState
+              )
 
               // Save immediately after each tool use
               await saveChatToDatabase(aiState.get())
@@ -432,8 +447,13 @@ Asistente (tú): { "tool_call": { "id": "pending", "type": "function", "function
                 ]
               } as any)
 
-              // Use a fixed caption to avoid API errors
-              const caption = `Aquí tienes el precio actual de ${symbol}. ¿Necesitas alguna otra información?`
+              // Generate caption using the proper function
+              const caption = await generateCaption(
+                symbol,
+                [],
+                'showStockPrice',
+                aiState
+              )
 
               // Save immediately after each tool use
               await saveChatToDatabase(aiState.get())
@@ -515,8 +535,13 @@ Asistente (tú): { "tool_call": { "id": "pending", "type": "function", "function
                 ]
               } as any)
 
-              // Use a fixed caption to avoid API errors
-              const caption = `Aquí tienes los datos financieros de ${symbol}. ¿Necesitas alguna otra información?`
+              // Generate caption using the proper function
+              const caption = await generateCaption(
+                symbol,
+                [],
+                'showStockFinancials',
+                aiState
+              )
 
               // Save immediately after each tool use
               await saveChatToDatabase(aiState.get())
@@ -598,8 +623,13 @@ Asistente (tú): { "tool_call": { "id": "pending", "type": "function", "function
                 ]
               } as any)
 
-              // Use a fixed caption to avoid API errors
-              const caption = `Aquí tienes las noticias recientes de ${symbol}. ¿Necesitas alguna otra información?`
+              // Generate caption using the proper function
+              const caption = await generateCaption(
+                symbol,
+                [],
+                'showStockNews',
+                aiState
+              )
 
               // Save immediately after each tool use
               await saveChatToDatabase(aiState.get())
@@ -675,8 +705,13 @@ Asistente (tú): { "tool_call": { "id": "pending", "type": "function", "function
                 ]
               } as any)
 
-              // Use a fixed caption to avoid API errors
-              const caption = `Aquí tienes el buscador de acciones. Puedes utilizar diferentes filtros para encontrar acciones que se ajusten a tus criterios.`
+              // Generate caption using the proper function
+              const caption = await generateCaption(
+                'Generic',
+                [],
+                'showStockScreener',
+                aiState
+              )
 
               // Save immediately after each tool use
               await saveChatToDatabase(aiState.get())
@@ -751,8 +786,13 @@ Asistente (tú): { "tool_call": { "id": "pending", "type": "function", "function
                 ]
               } as any)
 
-              // Use a fixed caption to avoid API errors
-              const caption = `Aquí tienes el resumen general del mercado. ¿Necesitas información sobre algún instrumento específico?`
+              // Generate caption using the proper function
+              const caption = await generateCaption(
+                'Generic',
+                [],
+                'showMarketOverview',
+                aiState
+              )
 
               // Save immediately after each tool use
               await saveChatToDatabase(aiState.get())
@@ -827,8 +867,13 @@ Asistente (tú): { "tool_call": { "id": "pending", "type": "function", "function
                 ]
               } as any)
 
-              // Use a fixed caption to avoid API errors
-              const caption = `Aquí tienes el mapa de calor del mercado por sectores. Los colores indican el rendimiento: verde para positivo y rojo para negativo.`
+              // Generate caption using the proper function
+              const caption = await generateCaption(
+                'Generic',
+                [],
+                'showMarketHeatmap',
+                aiState
+              )
 
               // Save immediately after each tool use
               await saveChatToDatabase(aiState.get())
@@ -903,8 +948,13 @@ Asistente (tú): { "tool_call": { "id": "pending", "type": "function", "function
                 ]
               } as any)
 
-              // Use a fixed caption to avoid API errors
-              const caption = `Aquí tienes el mapa de calor de ETFs. ¿Necesitas información sobre algún ETF específico?`
+              // Generate caption using the proper function
+              const caption = await generateCaption(
+                'Generic',
+                [],
+                'showETFHeatmap',
+                aiState
+              )
 
               // Save immediately after each tool use
               await saveChatToDatabase(aiState.get())
@@ -979,8 +1029,13 @@ Asistente (tú): { "tool_call": { "id": "pending", "type": "function", "function
                 ]
               } as any)
 
-              // Use a fixed caption to avoid API errors
-              const caption = `Aquí tienes las acciones más populares del día. Incluye las que más han subido, las que más han caído y las más activas.`
+              // Generate caption using the proper function
+              const caption = await generateCaption(
+                'Generic',
+                [],
+                'showTrendingStocks',
+                aiState
+              )
 
               // Save immediately after each tool use
               await saveChatToDatabase(aiState.get())
@@ -1018,7 +1073,7 @@ Asistente (tú): { "tool_call": { "id": "pending", "type": "function", "function
     console.error('Error in submitUserMessage:', err)
 
     if (err.message.includes('OpenAI API key is missing.')) {
-      err.message = 'La API Key de Groq no fue detectada en el proyecto.'
+      err.message = 'La API Key de OpenAi no fue detectada en el proyecto.'
     }
 
     // Add a default user-friendly message to avoid exposing API error details

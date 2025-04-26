@@ -18,7 +18,7 @@ Pesito a Pesito es una plataforma SaaS que proporciona información bursátil en
 - **Backend**: API Routes de Next.js, Prisma ORM
 - **Base de datos**: SQLite (desarrollo), PostgreSQL (recomendado para producción)
 - **Autenticación**: Clerk
-- **IA**: Groq AI API (modelo Llama3-70b)
+- **IA**: OpenAi API KEY con Vercel AI SDK (modelo gpt-4o)
 - **Datos Financieros**: Widgets de TradingView
 - **Suscripciones**: Integración DeFi (contratos inteligentes en Sepolia)
 
@@ -27,9 +27,9 @@ Pesito a Pesito es una plataforma SaaS que proporciona información bursátil en
 ### Requisitos Previos
 
 - Node.js 18+ y npm/yarn/pnpm
-- Clave API de Groq
+- Clave API de OPENAI
 - Cuenta de Clerk
-- MetaMask para transacciones en testnet
+- MetaMask (extensión) para transacciones en testnet
 
 ### Instalación
 
@@ -54,7 +54,7 @@ Pesito a Pesito es una plataforma SaaS que proporciona información bursátil en
 
    - Copia `.env.example` a `.env.local`
    - Llena los valores requeridos:
-     - `GROQ_API_KEY`: Tu clave API de Groq
+     - `OPENAI_API_KEY`: Tu clave API de OpenAi
      - `DATABASE_URL`: URL de conexión a tu base de datos
      - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: Clave pública de Clerk
      - `CLERK_SECRET_KEY`: Clave secreta de Clerk

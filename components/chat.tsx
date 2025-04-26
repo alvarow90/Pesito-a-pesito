@@ -40,21 +40,28 @@ export function Chat({ id, className, missingKeys }: ChatProps) {
   const [showLimitDialog, setShowLimitDialog] = useState(false)
   const [isNewChat, setIsNewChat] = useState(!path?.includes('/chat/'))
 
-  // Only redirect premium users to chat page for new conversations
+  // Handle chat creation and redirect
   useEffect(() => {
+    // Only redirect if it's a new chat with messages and not already on a chat page
     if (
       isNewChat &&
       aiState?.chatId &&
       aiState.messages?.length > 0 &&
-      !path.includes(aiState.chatId) &&
-      user?.subscriptionStatus === 'premium'
+      !path?.includes(aiState.chatId)
     ) {
       // Generate event to ensure chat list updates
       window.dispatchEvent(new Event('refetch-chats'))
 
-      // For premium users, redirect to the chat page
-      router.push(`/chat/${aiState.chatId}`)
-      setIsNewChat(false)
+      // For premium users, redirect to the chat page with a small delay
+      if (user?.subscriptionStatus === 'premium') {
+        // Add a small delay to ensure the chat is registered in the database
+        const redirectTimeout = setTimeout(() => {
+          router.push(`/chat/${aiState.chatId}`)
+          setIsNewChat(false)
+        }, 500) // 500ms delay
+
+        return () => clearTimeout(redirectTimeout)
+      }
     }
   }, [aiState, isNewChat, path, router, user?.subscriptionStatus])
 

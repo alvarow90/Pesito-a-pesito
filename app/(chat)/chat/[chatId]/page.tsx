@@ -1,9 +1,9 @@
-import { notFound, redirect } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { getMissingKeys } from '@/app/actions'
 import { Chat } from '@/components/chat'
 import { AI } from '@/lib/chat/actions'
 import { prisma } from '@/lib/prisma'
-import { auth } from '@clerk/nextjs/server'
+import { auth, currentUser } from '@clerk/nextjs/server'
 import { AlertCircle } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
@@ -18,8 +18,9 @@ export default async function ChatPage({ params }: ChatPageParams) {
 
   const missingKeys = await getMissingKeys()
   const { userId } = await auth()
+  const user = await currentUser()
 
-  if (!userId) {
+  if (!userId || !user) {
     redirect('/sign-in?redirect_url=' + encodeURIComponent(`/chat/${chatId}`))
   }
 
@@ -27,12 +28,12 @@ export default async function ChatPage({ params }: ChatPageParams) {
   let initialAIState = { chatId, messages: [] } as any
 
   try {
-    const user = await prisma.user.findUnique({
+    const dbUser = await prisma.user.findUnique({
       where: { id: userId },
       select: { subscriptionStatus: true }
     })
 
-    if (!user || user.subscriptionStatus !== 'premium') {
+    if (!dbUser || dbUser.subscriptionStatus !== 'premium') {
       redirect('/')
     }
 
@@ -43,8 +44,9 @@ export default async function ChatPage({ params }: ChatPageParams) {
       }
     })
 
+    // If chat doesn't exist or belongs to another user, redirect to home
     if (!chat) {
-      return notFound()
+      redirect('/')
     }
 
     initialAIState = (chat.stateData as any) || { chatId, messages: [] }
@@ -69,6 +71,8 @@ export default async function ChatPage({ params }: ChatPageParams) {
   } catch (e) {
     console.error('Error loading chat:', e)
     error = 'Error al cargar la conversación'
+    // Redirect to home on error
+    redirect('/')
   }
 
   if (error) {
@@ -99,7 +103,7 @@ export default async function ChatPage({ params }: ChatPageParams) {
   }
 
   return (
-    <div className=''>
+    <div className="">
       <AI initialAIState={initialAIState} initialUIState={[]}>
         <Chat id={chatId} missingKeys={missingKeys} />
       </AI>
