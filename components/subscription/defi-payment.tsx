@@ -27,7 +27,7 @@ export function DefiPayment() {
       typeof window === 'undefined' ||
       typeof window.ethereum === 'undefined'
     ) {
-      toast.error('Por favor instala MetaMask para continuar')
+      toast.error('Por favor instala la extensión de MetaMask para continuar')
       return
     }
 

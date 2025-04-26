@@ -68,7 +68,7 @@ export function Chat({ id, className, missingKeys }: ChatProps) {
   // Display missing environment key errors
   useEffect(() => {
     missingKeys.forEach(key => {
-      toast.error(`Missing ${key} environment variable!`)
+      toast.error(`Falta tu ${key} como variable de entorno!`)
     })
   }, [missingKeys])
 
