@@ -209,4 +209,4 @@ npm run format:write
 
 ---
 
-Desarrollado con ❤️ por Álvaro Zaid Gallardo Hernández
+Desarrollado con ❤️ por Álvaro Gallardo  y Alonso Díaz 
